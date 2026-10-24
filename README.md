@@ -109,4 +109,4 @@ wrapper. See [CONTRIBUTING.md](./CONTRIBUTING.md) and [ARCHITECTURE.md](./ARCHIT
 
 ## License
 
-[MIT](./LICENSE) © [Wrenyn](https://wrenyn.com)
+Proprietary. © [Wrenyn](https://wrenyn.com), all rights reserved; see [LICENSE](./LICENSE)

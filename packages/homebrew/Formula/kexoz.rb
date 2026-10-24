@@ -2,7 +2,7 @@ class Kexoz < Formula
   desc "Instant localhost tunnels for developers — ngrok alternative"
   homepage "https://kexoz.dev"
   version "1.0.6"
-  license "MIT"
+  license :cannot_represent
 
   on_macos do
     on_arm do
