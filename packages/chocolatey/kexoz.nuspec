@@ -10,7 +10,7 @@
     <licenseUrl>https://github.com/wrenyn/kexoz-cli/blob/main/LICENSE</licenseUrl>
     <projectUrl>https://kexoz.dev</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>Kexoz is a fast, developer-first tunnel client. Expose your local development server to the internet with a permanent subdomain in seconds. Alternative to ngrok — open source, self-hostable.</description>
+    <description>Kexoz is a fast, developer-first tunnel client. Share your local apps, terminals and files securely with a permanent subdomain in seconds. An alternative to ngrok.</description>
     <summary>Instant localhost tunnels for developers. ngrok alternative.</summary>
     <releaseNotes>https://github.com/wrenyn/kexoz-cli/releases</releaseNotes>
     <copyright>Copyright 2026 Wrenyn</copyright>

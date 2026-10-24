@@ -3,7 +3,7 @@
 **Share your local apps, terminals and files securely — from the command line.**
 
 Headless, single-binary client for [Kexoz](https://kexoz.dev), built and maintained by
-[Wrenyn](https://github.com/wrenyn). Share web apps, raw TCP/UDP services and browser terminals
+[Wrenyn](https://wrenyn.com). Share web apps, raw TCP/UDP services and browser terminals
 through an encrypted, multiplexed tunnel. For folder sharing and a visual dashboard, use
 [Kexoz Desktop](https://github.com/wrenyn/kexoz-desktop).
 
@@ -35,7 +35,7 @@ Inspector    http://localhost:4040
 | Prebuilt binaries | [releases](https://github.com/wrenyn/kexoz-cli/releases) — windows / linux / macOS × amd64 / arm64 |
 
 Verify the install with `kexoz version` (or `kexoz --version`). The installer scripts
-honour `KEXOZ_CLI_REPO` and `KEXOZ_INSTALL_DIR` if you fork or self-host.
+honour `KEXOZ_CLI_REPO` and `KEXOZ_INSTALL_DIR` to install from another release source or directory.
 
 ## Quick start
 
@@ -109,4 +109,4 @@ wrapper. See [CONTRIBUTING.md](./CONTRIBUTING.md) and [ARCHITECTURE.md](./ARCHIT
 
 ## License
 
-[MIT](./LICENSE) © [Wrenyn](https://github.com/wrenyn)
+[MIT](./LICENSE) © [Wrenyn](https://wrenyn.com)
