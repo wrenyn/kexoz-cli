@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>kexoz</id>
+    <version>$version$</version>
+    <title>Kexoz</title>
+    <authors>kexoz</authors>
+    <owners>kexoz</owners>
+    <iconUrl>https://kexoz.dev/icon.png</iconUrl>
+    <licenseUrl>https://github.com/wrenyn/kexoz-cli/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://kexoz.dev</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Kexoz is a fast, developer-first tunnel client. Expose your local development server to the internet with a permanent subdomain in seconds. Alternative to ngrok — open source, self-hostable.</description>
+    <summary>Instant localhost tunnels for developers. ngrok alternative.</summary>
+    <releaseNotes>https://github.com/wrenyn/kexoz-cli/releases</releaseNotes>
+    <copyright>Copyright 2026 Wrenyn</copyright>
+    <tags>tunnel localhost ngrok developer-tools port-forwarding webhook cli</tags>
+    <docsUrl>https://github.com/wrenyn/kexoz-cli#readme</docsUrl>
+    <bugTrackerUrl>https://github.com/wrenyn/kexoz-cli/issues</bugTrackerUrl>
+    <dependencies />
+  </metadata>
+</package>
