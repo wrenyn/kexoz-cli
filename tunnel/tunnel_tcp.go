@@ -108,7 +108,9 @@ func (t *Tunnel) startOnceWS(ctx context.Context) error {
 		scheme = "wss"
 	}
 	
-	wsURL := fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s%s&proto=3", scheme, serverURL.Host, url.QueryEscape(t.ClientID), t.tunnelQuery())
+	// window=2m asks the server for 2 MB per-stream windows, which hashicorp
+	// yamux on both ends handles; large downloads are much faster with it.
+	wsURL := fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s%s&proto=3&window=2m", scheme, serverURL.Host, url.QueryEscape(t.ClientID), t.tunnelQuery())
 
 	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
