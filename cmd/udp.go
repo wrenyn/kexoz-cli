@@ -57,7 +57,8 @@ var udpCmd = &cobra.Command{
 		}
 		
 		var tunnelResponse struct {
-			PublicTCPPort int `json:"publicTcpPort"`
+			ID            string `json:"id"`
+			PublicTCPPort int    `json:"publicTcpPort"`
 		}
 		if err := json.Unmarshal(body, &tunnelResponse); err != nil {
 			return fmt.Errorf("failed to parse tunnel response: %w", err)
@@ -72,6 +73,7 @@ var udpCmd = &cobra.Command{
 		t := &tunnel.Tunnel{
 			ServerURL: serverURL,
 			ClientID:  cfg.ClientID,
+			TunnelID:  tunnelResponse.ID,
 			LocalPort: port,
 			IsTCP:     false,
 			IsUDP:     true,

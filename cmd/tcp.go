@@ -57,16 +57,19 @@ var tcpCmd = &cobra.Command{
 		}
 		
 		var tunnelResponse struct {
-			PublicTCPPort int `json:"publicTcpPort"`
+			ID            string `json:"id"`
+			PublicTCPPort int    `json:"publicTcpPort"`
 		}
 		if err := json.Unmarshal(body, &tunnelResponse); err != nil {
 			return fmt.Errorf("failed to parse tunnel response: %w", err)
 		}
 
 		fmt.Printf("Client ID: %s\n", cfg.ClientID)
-		fmt.Printf("Tunnel ID: tnl_%s\n", cfg.ClientID) // Just a mock for now, the user uses Connect
+		if tunnelResponse.PublicTCPPort > 0 {
+			fmt.Printf("Public address: %s:%d\n", RootDomain, tunnelResponse.PublicTCPPort)
+		}
 		fmt.Printf("To connect to this tunnel from another machine, run:\n")
-		fmt.Printf("  kexoz connect %s --port %d\n", cfg.ClientID, port)
+		fmt.Printf("  kexoz connect %s --port %d\n", tunnelResponse.ID, port)
 
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -74,6 +77,7 @@ var tcpCmd = &cobra.Command{
 		t := &tunnel.Tunnel{
 			ServerURL: serverURL,
 			ClientID:  cfg.ClientID,
+			TunnelID:  tunnelResponse.ID,
 			LocalPort: port,
 			IsTCP:     true,
 		}

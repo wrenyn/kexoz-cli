@@ -108,7 +108,7 @@ func (t *Tunnel) startOnceWS(ctx context.Context) error {
 		scheme = "wss"
 	}
 	
-	wsURL := fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s&proto=3", scheme, serverURL.Host, url.QueryEscape(t.ClientID))
+	wsURL := fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s%s&proto=3", scheme, serverURL.Host, url.QueryEscape(t.ClientID), t.tunnelQuery())
 
 	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
@@ -208,6 +208,9 @@ func (t *Tunnel) startOnceTCP(ctx context.Context, tcpAddr string) error {
 
 	// Handshake
 	authMsg := fmt.Sprintf("AUTH %s\n", t.ClientID)
+	if t.TunnelID != "" {
+		authMsg = fmt.Sprintf("AUTH %s %s\n", t.ClientID, t.TunnelID)
+	}
 	if _, err := conn.Write([]byte(authMsg)); err != nil {
 		return fmt.Errorf("auth write failed: %w", err)
 	}

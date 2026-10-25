@@ -85,6 +85,7 @@ var e2eCmd = &cobra.Command{
 		t := &tunnel.Tunnel{
 			ServerURL: serverURL,
 			ClientID:  cfg.ClientID,
+			TunnelID:  createdTunnelID(body),
 			LocalPort: port,
 			IsTCP:     false,
 			IsE2E:     true,

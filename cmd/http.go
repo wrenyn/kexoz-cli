@@ -120,6 +120,7 @@ var httpCmd = &cobra.Command{
 		t := &tunnel.Tunnel{
 			ServerURL: serverURL,
 			ClientID:  cfg.ClientID,
+			TunnelID:  tunnelData.ID,
 			LocalPort: port,
 			OnRequest: func(method, path string, status int, durationMs int64) {
 				if !JSONOutput {

@@ -55,6 +55,7 @@ type TunnelResponse struct {
 type Tunnel struct {
 	ServerURL string
 	ClientID  string
+	TunnelID  string
 	LocalPort int
 	IsTCP     bool
 	IsE2E     bool
@@ -83,7 +84,14 @@ func (t *Tunnel) wsURL() (string, error) {
 	}
 	// proto=2 requests raw binary framing; older servers ignore it and reply
 	// with legacy JSON, which the read loop auto-detects.
-	return fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s&proto=2", scheme, serverURL.Host, url.QueryEscape(t.ClientID)), nil
+	return fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s%s&proto=2", scheme, serverURL.Host, url.QueryEscape(t.ClientID), t.tunnelQuery()), nil
+}
+
+func (t *Tunnel) tunnelQuery() string {
+	if t.TunnelID == "" {
+		return ""
+	}
+	return "&tunnelId=" + url.QueryEscape(t.TunnelID)
 }
 
 // Start connects and forwards until ctx is cancelled, reconnecting with

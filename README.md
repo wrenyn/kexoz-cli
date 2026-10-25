@@ -19,7 +19,8 @@ Inspector    http://localhost:4040
 - **Private (E2E) tunnels** — TLS terminates on your machine, the gateway only relays bytes
 - **Raw TCP / UDP** for Postgres, SSH, game servers, DNS
 - **Path routing** (`--route /api=7000`), `--password` basic auth, `--one-time`, `--duration 1h`
-- **Browser terminal** (`pty`) for sharing a shell with a teammate — always behind Google sign-in
+- **Browser terminal** (`pty`) for sharing a shell with a teammate — always behind a password
+- **Saved projects**: `kexoz start my-project` brings up every share in a project at once
 - **Request inspector** on `http://localhost:4040` to view and replay incoming requests
 
 ## Install
@@ -40,7 +41,7 @@ honour `KEXOZ_CLI_REPO` and `KEXOZ_INSTALL_DIR` to install from another release 
 ## Quick start
 
 ```bash
-kexoz login              # link a Google account (unlocks 1 GB free bandwidth)
+kexoz login              # link your Kexoz account (unlocks the full free plan)
 kexoz http 3000          # expose localhost:3000 over HTTPS
 ```
 
@@ -52,7 +53,9 @@ kexoz http 3000          # expose localhost:3000 over HTTPS
 | `kexoz e2e [port]` | End-to-end encrypted tunnel (TLS terminated locally). Flag: `--subdomain` |
 | `kexoz tcp [port]` | Raw TCP tunnel (SSH, Postgres, …) on a public port |
 | `kexoz udp [port]` | UDP tunnel (DNS, game servers). Flag: `--tcp` |
-| `kexoz terminal` | Browser terminal (`pty`). Flags: `--subdomain`, `--tcp`. Google sign-in is enforced by the gateway |
+| `kexoz terminal` | Browser terminal (`pty`). Flags: `--subdomain`, `--password` (generated and printed when omitted), `--tcp` |
+| `kexoz start [project]` | Start every share in a saved project |
+| `kexoz projects` | List saved projects |
 | `kexoz connect [tunnel-id]` | Dial a remote raw TCP tunnel locally. Flag: `--port` (default 8080) |
 | `kexoz tunnel list \| create \| delete \| routes` | Manage persistent tunnel configurations (`create`: `--subdomain`, `--port`, `--route`) |
 | `kexoz domain claim [subdomain] \| custom [domain]` | Claim a subdomain or map a custom domain (Pro) |
@@ -67,8 +70,8 @@ The default gateway is `https://api.kexoz.dev`. Point it at your own deployment 
 ## Configuration
 
 The client identity and plan are stored in `~/.config/kexoz/config.yaml` (the legacy
-`~/.kexoz/config.json` is still read for migration). `kexoz logout` clears the Google
-session without deleting the client identity.
+`~/.kexoz/config.json` is still read for migration). `kexoz logout` unlinks the account
+without deleting the client identity.
 
 ## Transports
 
@@ -78,9 +81,8 @@ PTY) with [yamux](https://github.com/hashicorp/yamux). On networks that block We
 
 ## Security
 
-- `kexoz terminal` hands visitors a shell on your machine, so the gateway refuses to serve a
-  terminal unless Google OAuth is configured and the visitor has signed in — the tunnel's
-  `requireAuth` flag can neither be disabled nor bypassed.
+- `kexoz terminal` hands visitors a shell on your machine, so the gateway refuses to create a
+  terminal without a password and asks every visitor for it before the shell opens.
 - The client identity and the linked account live in `~/.config/kexoz/config.yaml`, which is
   written with owner-only (`0600`) permissions. For automation, issue an API token
   (`kexoz_sk_…`); using the raw client identity as a bearer credential is deprecated.
