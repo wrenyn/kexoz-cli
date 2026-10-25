@@ -138,7 +138,11 @@ var startCmd = &cobra.Command{
 				fmt.Printf("  skipped terminal %s (start terminals with kexoz terminal)\n", shareAddress(share))
 				continue
 			}
-			fmt.Printf("  %s -> localhost:%d\n", shareAddress(share), share.Port)
+			if share.Name != "" {
+				fmt.Printf("  %s: %s -> localhost:%d\n", share.Name, shareAddress(share), share.Port)
+			} else {
+				fmt.Printf("  %s -> localhost:%d\n", shareAddress(share), share.Port)
+			}
 			setTunnelActive(cfg, share, true)
 			t := &tunnel.Tunnel{
 				ServerURL: serverURL,

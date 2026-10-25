@@ -23,6 +23,7 @@ type cliPathRoute struct {
 
 type cliTunnel struct {
 	ID            string         `json:"id"`
+	Name          string         `json:"name,omitempty"`
 	Subdomain     string         `json:"subdomain"`
 	CustomDomain  string         `json:"customDomain"`
 	Port          int            `json:"port"`
