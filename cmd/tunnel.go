@@ -34,6 +34,8 @@ type cliTunnel struct {
 	PublicTCPPort int            `json:"publicTcpPort,omitempty"`
 	ExpiresAt     *time.Time     `json:"expiresAt,omitempty"`
 	OneTime       bool           `json:"oneTime,omitempty"`
+	Paused        bool           `json:"paused,omitempty"`
+	Environment   string         `json:"environment,omitempty"`
 }
 
 var tunnelCmd = &cobra.Command{Use: "tunnel", Short: "Manage persistent tunnel configurations"}
@@ -122,8 +124,8 @@ var tunnelCreateCmd = &cobra.Command{
 			return fmt.Errorf("--subdomain and a valid --port are required")
 		}
 		tunnelCreateType = strings.ToLower(strings.TrimSpace(tunnelCreateType))
-		if tunnelCreateType != "http" && tunnelCreateType != "tcp" && tunnelCreateType != "e2e" && tunnelCreateType != "udp" && tunnelCreateType != "pty" {
-			return fmt.Errorf("--type must be one of: http, tcp, e2e, udp, pty")
+		if tunnelCreateType != "http" && tunnelCreateType != "tcp" && tunnelCreateType != "e2e" && tunnelCreateType != "udp" {
+			return fmt.Errorf("--type must be one of: http, tcp, e2e, udp")
 		}
 		routes, err := parseRoutes(tunnelCreateRoutes, tunnelCreatePort)
 		if err != nil {
@@ -331,7 +333,7 @@ func init() {
 	tunnelCreateCmd.Flags().StringVar(&tunnelCreateSubdomain, "subdomain", "", "Public subdomain")
 	tunnelCreateCmd.Flags().IntVar(&tunnelCreatePort, "port", 0, "Local port")
 	tunnelCreateCmd.Flags().StringSliceVar(&tunnelCreateRoutes, "route", nil, "Path mapping such as /api=7000")
-	tunnelCreateCmd.Flags().StringVar(&tunnelCreateType, "type", "http", "Tunnel type: http, tcp, e2e, udp, or pty")
+	tunnelCreateCmd.Flags().StringVar(&tunnelCreateType, "type", "http", "Tunnel type: http, tcp, e2e, or udp")
 	tunnelUpdateCmd.Flags().StringVar(&tunnelUpdateActiveState, "active", "", "Set active state: 'true' or 'false'")
 	tunnelCmd.AddCommand(tunnelCreateCmd, tunnelListCmd, tunnelDeleteCmd, tunnelRoutesCmd, tunnelUpdateCmd)
 	rootCmd.AddCommand(tunnelCmd)

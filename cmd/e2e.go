@@ -21,6 +21,15 @@ import (
 
 var e2eSubdomain string
 
+// createdTunnelID reads the share ID from a create-tunnel response.
+func createdTunnelID(body []byte) string {
+	var created struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(body, &created)
+	return created.ID
+}
+
 var e2eCmd = &cobra.Command{
 	Use:   "e2e [port]",
 	Short: "Start an End-to-End Encrypted (Private) tunnel",
@@ -56,7 +65,7 @@ var e2eCmd = &cobra.Command{
 		if cfg.Subdomain != "" {
 			payload["subdomain"] = cfg.Subdomain
 		}
-		
+
 		payloadBytes, _ := json.Marshal(payload)
 		req, _ := http.NewRequest(http.MethodPost, serverURL+"/client/tunnels", bytes.NewReader(payloadBytes))
 		req.Header.Set("Content-Type", "application/json")
@@ -65,7 +74,7 @@ var e2eCmd = &cobra.Command{
 			return fmt.Errorf("failed to create e2e tunnel on server: %w", err)
 		}
 		defer resp.Body.Close()
-		
+
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
 		if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("failed to create e2e tunnel, status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))

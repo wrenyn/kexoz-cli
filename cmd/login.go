@@ -22,7 +22,7 @@ var loginCmd = &cobra.Command{
 		if token != "" {
 			os.Setenv("KEXOZ_TOKEN", token)
 		}
-		
+
 		cfg, err := config.EnsureIdentity(serverURL)
 		if err != nil {
 			return fmt.Errorf("authentication failed: %w", err)

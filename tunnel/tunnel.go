@@ -36,6 +36,8 @@ var localHTTPClient = &http.Client{
 	},
 }
 
+var inspectorOnce sync.Once
+
 type TunnelRequest struct {
 	ID      string              `json:"id"`
 	Method  string              `json:"method"`
@@ -52,15 +54,25 @@ type TunnelResponse struct {
 	Error   string              `json:"error,omitempty"`
 }
 
+// Route sends requests under Path to a different local port, so one share
+// can serve a frontend at / and a backend at /api.
+type Route struct {
+	Path string
+	Port int
+}
+
 type Tunnel struct {
 	ServerURL string
 	ClientID  string
 	TunnelID  string
 	LocalPort int
+	Routes    []Route
 	IsTCP     bool
 	IsE2E     bool
 	IsUDP     bool
-	IsPTY     bool
+	// Quiet stops the connection messages, for when several shares start
+	// together and the caller prints its own summary.
+	Quiet bool
 
 	// OnRequest is an optional callback called after each request is forwarded.
 	OnRequest func(method, path string, status int, durationMs int64)
@@ -98,7 +110,7 @@ func (t *Tunnel) tunnelQuery() string {
 // backoff on drops. It returns nil on clean shutdown.
 func (t *Tunnel) Start(ctx context.Context) error {
 	SetReplayTarget(t.LocalPort, localHTTPClient.Do)
-	go StartInspector(4040)
+	inspectorOnce.Do(func() { go StartInspector(4040) })
 
 	backoff := time.Second
 	const maxBackoff = 30 * time.Second
@@ -155,8 +167,10 @@ func (t *Tunnel) startOnce(ctx context.Context) error {
 	})
 	conn.SetReadLimit(tunnelReadLimit)
 
-	fmt.Printf("Tunnel connected to %s\n", t.ServerURL)
-	fmt.Printf("Forwarding requests to http://localhost:%d\n", t.LocalPort)
+	if !t.Quiet {
+		fmt.Printf("Tunnel connected to %s\n", t.ServerURL)
+		fmt.Printf("Forwarding requests to http://localhost:%d\n", t.LocalPort)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -217,7 +231,7 @@ func (t *Tunnel) handleRequest(req TunnelRequest) {
 
 	// 127.0.0.1 (not "localhost") avoids IPv6 ::1 resolution mismatches when
 	// the local dev server only binds IPv4.
-	localURL := fmt.Sprintf("http://127.0.0.1:%d%s", t.LocalPort, req.Path)
+	localURL := fmt.Sprintf("http://127.0.0.1:%d%s", t.PortFor(req.Path), req.Path)
 	httpReq, err := http.NewRequest(req.Method, localURL, reqBody)
 	if err != nil {
 		resp.Error = fmt.Sprintf("failed to create local request: %v", err)
@@ -277,6 +291,23 @@ func (t *Tunnel) handleRequest(req TunnelRequest) {
 	if t.OnRequest != nil {
 		t.OnRequest(req.Method, req.Path, httpResp.StatusCode, time.Since(start).Milliseconds())
 	}
+}
+
+// PortFor picks the local port for a request path: the longest route prefix
+// that matches, else the share's own port.
+func (t *Tunnel) PortFor(requestPath string) int {
+	path, _, _ := strings.Cut(requestPath, "?")
+	best, bestLen := t.LocalPort, -1
+	for _, route := range t.Routes {
+		prefix := strings.TrimRight(route.Path, "/")
+		if prefix == "" || route.Port < 1 {
+			continue
+		}
+		if (path == prefix || strings.HasPrefix(path, prefix+"/")) && len(prefix) > bestLen {
+			best, bestLen = route.Port, len(prefix)
+		}
+	}
+	return best
 }
 
 func (t *Tunnel) sendResponse(resp TunnelResponse) {

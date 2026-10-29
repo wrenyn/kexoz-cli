@@ -25,13 +25,13 @@ var connectCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		tunnelID := args[0]
 		port, _ := cmd.Flags().GetInt("port")
-		
+
 		serverURL := NormalizedServerURL()
 		parsedURL, err := url.Parse(serverURL)
 		if err != nil {
 			return err
 		}
-		
+
 		scheme := "ws"
 		if parsedURL.Scheme == "https" {
 			scheme = "wss"
@@ -68,7 +68,7 @@ var connectCmd = &cobra.Command{
 				}
 
 				wsconn := &tunnel.WSNetConn{Conn: conn}
-				
+
 				// Initialize Yamux Client on this connection
 				session, err := yamux.Client(wsconn, yamux.DefaultConfig())
 				if err != nil {
@@ -85,7 +85,7 @@ var connectCmd = &cobra.Command{
 					if err != nil {
 						break
 					}
-					
+
 					go func(lConn net.Conn) {
 						defer lConn.Close()
 						remoteStream, err := session.Open()
@@ -122,4 +122,3 @@ func init() {
 	connectCmd.Flags().IntP("port", "p", 8080, "Local port to listen on")
 	rootCmd.AddCommand(connectCmd)
 }
-

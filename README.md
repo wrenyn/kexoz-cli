@@ -1,10 +1,10 @@
 # Kexoz CLI
 
-**Share your local apps, terminals and files securely — from the command line.**
+**Share your local apps securely — from the command line.**
 
 Headless, single-binary client for [Kexoz](https://kexoz.dev), built and maintained by
-[Wrenyn](https://wrenyn.com). Share web apps, raw TCP/UDP services and browser terminals
-through an encrypted, multiplexed tunnel. For folder sharing and a visual dashboard, use
+[Wrenyn](https://wrenyn.com). Share web apps and raw TCP/UDP services through an encrypted,
+multiplexed tunnel. For feedback, revisions and a visual dashboard, use
 [Kexoz Desktop](https://github.com/wrenyn/kexoz-desktop).
 
 ```console
@@ -19,7 +19,6 @@ Inspector    http://localhost:4040
 - **Private (E2E) tunnels** — TLS terminates on your machine, the gateway only relays bytes
 - **Raw TCP / UDP** for Postgres, SSH, game servers, DNS
 - **Path routing** (`--route /api=7000`), `--password` basic auth, `--one-time`, `--duration 1h`
-- **Browser terminal** (`pty`) for sharing a shell with a teammate — always behind a password
 - **Saved projects**: `kexoz start my-project` brings up every share in a project at once
 - **Request inspector** on `http://localhost:4040` to view and replay incoming requests
 
@@ -53,9 +52,12 @@ kexoz http 3000          # expose localhost:3000 over HTTPS
 | `kexoz e2e [port]` | End-to-end encrypted tunnel (TLS terminated locally). Flag: `--subdomain` |
 | `kexoz tcp [port]` | Raw TCP tunnel (SSH, Postgres, …) on a public port |
 | `kexoz udp [port]` | UDP tunnel (DNS, game servers). Flag: `--tcp` |
-| `kexoz terminal` | Browser terminal (`pty`). Flags: `--subdomain`, `--password` (generated and printed when omitted), `--tcp` |
-| `kexoz start [project]` | Start every share in a saved project |
-| `kexoz projects` | List saved projects |
+| `kexoz start [project]` | Start a saved project's shares and print their links (uses `kexoz.json` when no project is named). Flag: `--env staging` |
+| `kexoz init [project]` | Write a `kexoz.json` linking this folder to a project. Flags: `--env`, `--force` |
+| `kexoz projects` | List saved projects and their environments |
+| `kexoz env new <name> [project]` | Copy an environment's shares (main by default, `--from`) into a new preview environment |
+| `kexoz inbox [project]` | Show the project's webhook inbox URL and latest requests. Flag: `--create` |
+| `kexoz inbox replay <request-id>` | Send a stored inbox request to your app again. Flag: `--share` |
 | `kexoz connect [tunnel-id]` | Dial a remote raw TCP tunnel locally. Flag: `--port` (default 8080) |
 | `kexoz tunnel list \| create \| delete \| routes` | Manage persistent tunnel configurations (`create`: `--subdomain`, `--port`, `--route`) |
 | `kexoz domain claim [subdomain] \| custom [domain]` | Claim a subdomain or map a custom domain (Pro) |
@@ -67,6 +69,34 @@ The default gateway is `https://api.kexoz.dev`. Point it at your own deployment 
 `kexoz --server https://api.example.com --root-domain example.com http 3000`, or set
 `KEXOZ_SERVER_URL` / `KEXOZ_ROOT_DOMAIN`.
 
+## Projects in a folder
+
+Run `kexoz init Shop` once in a repository and commit the `kexoz.json` it writes. Anyone on
+the project can then run `kexoz start` from that folder (or any folder below it) to start
+every share and print the links:
+
+```json
+{
+  "project": "Shop",
+  "environment": "staging",
+  "ports": { "web": 5173, "web /api": 8000 }
+}
+```
+
+- `environment` picks which copy of the project to start; leave it out for main.
+  `kexoz start --env pr-12` overrides it for one run.
+- `ports` is optional. It changes the local port for a share (by name or address), or for one
+  of its path routes with `"<share> /path"`, for people whose app runs elsewhere.
+- Path routes from the project (for example `/api` to a backend) are honoured, so one
+  address can serve both the frontend and the backend.
+
+Create a preview environment with `kexoz env new staging`. Each copy gets its own address and
+keeps the original's ports, routes and access rules.
+
+The project's webhook inbox (`kexoz inbox --create`) has a permanent URL. Kexoz stores every
+request sent to it even while your app is offline, forwards them live while the inbox's share
+is running, and `kexoz inbox replay <id>` resends one.
+
 ## Configuration
 
 The client identity and plan are stored in `~/.config/kexoz/config.yaml` (the legacy
@@ -75,14 +105,12 @@ without deleting the client identity.
 
 ## Transports
 
-By default the agent connects over a WSS WebSocket and multiplexes every stream (HTTP, TCP, UDP,
-PTY) with [yamux](https://github.com/hashicorp/yamux). On networks that block WebSockets, pass
+By default the agent connects over a WSS WebSocket and multiplexes every stream (HTTP, TCP, UDP)
+with [yamux](https://github.com/hashicorp/yamux). On networks that block WebSockets, pass
 `--tcp <server:8081>` to use the raw TCP agent transport instead.
 
 ## Security
 
-- `kexoz terminal` hands visitors a shell on your machine, so the gateway refuses to create a
-  terminal without a password and asks every visitor for it before the shell opens.
 - The client identity and the linked account live in `~/.config/kexoz/config.yaml`, which is
   written with owner-only (`0600`) permissions. For automation, issue an API token
   (`kexoz_sk_…`); using the raw client identity as a bearer credential is deprecated.

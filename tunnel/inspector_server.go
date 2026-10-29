@@ -230,6 +230,9 @@ func StartInspector(port int) {
 			http.Error(w, "Replay target not configured", http.StatusInternalServerError)
 			return
 		}
+		if reqRec.Port > 0 {
+			port = reqRec.Port
+		}
 
 		go func() {
 			var bodyReader io.Reader
@@ -246,7 +249,7 @@ func StartInspector(port int) {
 			}
 			_, _ = Intercept(newReq, do)
 		}()
-		
+
 		w.WriteHeader(http.StatusOK)
 	})
 

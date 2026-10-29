@@ -50,12 +50,12 @@ var udpCmd = &cobra.Command{
 			return fmt.Errorf("failed to create tunnel on server: %w", err)
 		}
 		defer resp.Body.Close()
-		
+
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
 		if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("failed to create udp tunnel, status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 		}
-		
+
 		var tunnelResponse struct {
 			ID            string `json:"id"`
 			PublicTCPPort int    `json:"publicTcpPort"`
@@ -78,7 +78,7 @@ var udpCmd = &cobra.Command{
 			IsTCP:     false,
 			IsUDP:     true,
 		}
-		
+
 		tcpAddr, _ := cmd.Flags().GetString("tcp")
 		if tcpAddr != "" {
 			if err := t.StartTCP(ctx, tcpAddr); err != nil {
