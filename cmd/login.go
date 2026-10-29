@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -59,6 +61,10 @@ var loginCmd = &cobra.Command{
 		}
 
 		finish := serverURL + "/client/link-finish?clientId=" + url.QueryEscape(cfg.ClientID)
+		link, code := startLink(serverURL, cfg.ClientID)
+		if link != "" {
+			finish += "&link=" + url.QueryEscape(link)
+		}
 		loginURL := serverURL + "/auth/google/login?next=" + url.QueryEscape(
 			base64.RawURLEncoding.EncodeToString([]byte(finish)))
 
@@ -66,6 +72,9 @@ var loginCmd = &cobra.Command{
 		fmt.Println()
 		fmt.Printf("  %s\n", loginURL)
 		fmt.Println()
+		if code != "" {
+			fmt.Printf("If the browser asks, check it shows the code %s.\n", code)
+		}
 		fmt.Println("Waiting for verification (up to 5 minutes)...")
 
 		deadline := time.Now().Add(5 * time.Minute)
@@ -80,11 +89,24 @@ var loginCmd = &cobra.Command{
 				Linked         bool   `json:"linked"`
 				Email          string `json:"email"`
 				BandwidthLimit int64  `json:"bandwidthLimit"`
+				SwitchTo       string `json:"switchTo"`
 			}
 			decodeErr := json.NewDecoder(resp.Body).Decode(&status)
 			resp.Body.Close()
 			if decodeErr != nil || !status.Linked {
 				continue
+			}
+			if status.SwitchTo != "" {
+				// The Google account already has an identity; this machine uses it.
+				*cfg = config.Config{ClientID: status.SwitchTo}
+				if err := config.SaveConfig(cfg); err != nil {
+					return fmt.Errorf("signed in, but failed to save config: %w", err)
+				}
+				if _, err := config.EnsureIdentity(serverURL); err != nil {
+					return fmt.Errorf("signed in, but failed to load your account: %w", err)
+				}
+				fmt.Printf("Signed in as %s. This machine now uses your Kexoz account.\n", status.Email)
+				return nil
 			}
 			cfg.OwnerEmail = status.Email
 			if err := config.SaveConfig(cfg); err != nil {
@@ -95,6 +117,29 @@ var loginCmd = &cobra.Command{
 		}
 		return fmt.Errorf("verification timed out — run `kexoz login` to try again")
 	},
+}
+
+// startLink asks the server for a sign-in link and the code the browser shows
+// before moving this machine onto an existing account. Older servers return
+// nothing and the plain link still works.
+func startLink(serverURL, clientID string) (string, string) {
+	body, _ := json.Marshal(map[string]string{"clientId": clientID})
+	resp, err := config.HTTPClient.Post(serverURL+"/client/link-start", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return "", ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", ""
+	}
+	var started struct {
+		Link string `json:"link"`
+		Code string `json:"code"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&started) != nil {
+		return "", ""
+	}
+	return started.Link, started.Code
 }
 
 func init() {
