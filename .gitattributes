@@ -1,0 +1,21 @@
+# Normalise line endings in the repository (LF) while letting checkouts use the
+# platform default, so a Windows clone cannot churn the whole tree.
+* text=auto
+
+# Shell scripts must stay LF so they run on Linux and macOS.
+*.sh text eol=lf
+# Windows-only scripts keep CRLF for PowerShell and CMD.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.ico binary
+*.pdf binary
+*.dll binary
+*.pak binary
+*.exe binary
+
+# Generated lockfiles collapse in review
+package-lock.json -diff linguist-generated=true
