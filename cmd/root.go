@@ -18,8 +18,8 @@ var JSONOutput bool
 
 var rootCmd = &cobra.Command{
 	Use:   "kexoz",
-	Short: "Share your local apps, terminals and services securely",
-	Long:  `Kexoz shares local web apps, raw TCP/UDP services and browser terminals through secure, multiplexed tunnels.`,
+	Short: "Share your local apps and services securely",
+	Long:  `Kexoz shares local web apps and raw TCP/UDP services through secure, multiplexed tunnels.`,
 	// Version enables `kexoz --version`, which the release smoke test and the
 	// Homebrew formula test both rely on.
 	Version: Version,

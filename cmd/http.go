@@ -43,44 +43,70 @@ var httpCmd = &cobra.Command{
 			return fmt.Errorf("authentication failed: %w", err)
 		}
 
-		payload := map[string]interface{}{
-			"clientId":   cfg.ClientID,
-			"port":       port,
-			"subdomain":  httpSubdomain,
-			"tunnelType": "http",
-			"duration":   tunnelDuration,
-			"oneTime":    tunnelOneTime,
-			"password":   tunnelPassword,
+		subdomain, err := resolveSubdomain(httpSubdomain, cfg)
+		if err != nil {
+			return err
 		}
+		autoName := strings.TrimSpace(httpSubdomain) == "" && strings.TrimSpace(cfg.Subdomain) == ""
 
+		var routes any
 		if len(httpRoutes) > 0 {
-			routes, err := parseRoutes(httpRoutes, port)
+			parsed, err := parseRoutes(httpRoutes, port)
 			if err != nil {
 				return err
 			}
-			payload["pathRoutes"] = routes
-		}
-
-		payloadBytes, _ := json.Marshal(payload)
-		req, _ := http.NewRequest(http.MethodPost, serverURL+"/client/tunnels", bytes.NewReader(payloadBytes))
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := config.HTTPClient.Do(req)
-		if err != nil {
-			return fmt.Errorf("failed to create tunnel on server: %w", err)
-		}
-		defer resp.Body.Close()
-		
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
-		if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("failed to create tunnel on server, status: %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+			routes = parsed
 		}
 
 		var tunnelData struct {
 			ID        string `json:"id"`
 			Subdomain string `json:"subdomain"`
 		}
-		if err := json.Unmarshal(body, &tunnelData); err != nil {
-			return fmt.Errorf("failed to parse tunnel response: %w", err)
+		var lastErr error
+		for attempt := 0; attempt < 5; attempt++ {
+			if attempt > 0 {
+				if !autoName {
+					break
+				}
+				subdomain = randomSubdomain()
+			}
+			payload := map[string]interface{}{
+				"clientId":   cfg.ClientID,
+				"port":       port,
+				"subdomain":  subdomain,
+				"tunnelType": "http",
+				"duration":   tunnelDuration,
+				"oneTime":    tunnelOneTime,
+				"password":   tunnelPassword,
+			}
+			if routes != nil {
+				payload["pathRoutes"] = routes
+			}
+
+			payloadBytes, _ := json.Marshal(payload)
+			req, _ := http.NewRequest(http.MethodPost, serverURL+"/client/tunnels", bytes.NewReader(payloadBytes))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := config.HTTPClient.Do(req)
+			if err != nil {
+				return fmt.Errorf("failed to create tunnel on server: %w", err)
+			}
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK {
+				if err := json.Unmarshal(body, &tunnelData); err != nil {
+					return fmt.Errorf("failed to parse tunnel response: %w", err)
+				}
+				lastErr = nil
+				break
+			}
+			lastErr = fmt.Errorf("failed to create tunnel on server, status: %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+			// Only retry auto names on "already taken".
+			if !autoName || !strings.Contains(strings.ToLower(string(body)), "already taken") {
+				return lastErr
+			}
+		}
+		if lastErr != nil {
+			return lastErr
 		}
 
 		if tunnelData.Subdomain != "" {
@@ -120,6 +146,7 @@ var httpCmd = &cobra.Command{
 		t := &tunnel.Tunnel{
 			ServerURL: serverURL,
 			ClientID:  cfg.ClientID,
+			TunnelID:  tunnelData.ID,
 			LocalPort: port,
 			OnRequest: func(method, path string, status int, durationMs int64) {
 				if !JSONOutput {
@@ -127,7 +154,7 @@ var httpCmd = &cobra.Command{
 				}
 			},
 		}
-		
+
 		tcpAddr, _ := cmd.Flags().GetString("tcp")
 		if tcpAddr != "" {
 			if err := t.StartTCP(ctx, tcpAddr); err != nil {

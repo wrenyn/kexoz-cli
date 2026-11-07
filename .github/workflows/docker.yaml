@@ -1,0 +1,64 @@
+name: Docker
+
+# Publish the CLI image on every push to main so :latest stays current.
+# Version tags (v*) are still published by release.yaml as :vX.Y.Z + :latest.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: VERSION=${{ steps.meta.outputs.sha }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/kexoz:latest
+            ghcr.io/${{ github.repository_owner }}/kexoz:${{ steps.meta.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      # Org package visibility cannot be flipped with GITHUB_TOKEN (needs an org admin).
+      # Fail soft so image publish still succeeds; keep the package Public in the UI:
+      # https://github.com/orgs/wrenyn/packages/container/kexoz/settings
+      - name: Reminder — package must stay public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          owner="${{ github.repository_owner }}"
+          name="kexoz"
+          if gh api "orgs/${owner}/packages/container/${name}" >/dev/null 2>&1; then
+            echo "::notice::ghcr.io/${owner}/${name}:latest was pushed. If docker pull is unauthorized, set the package to Public at https://github.com/orgs/${owner}/packages/container/${name}/settings"
+          else
+            echo "::notice::Package not readable via API yet; after the first push, set visibility to Public in GHCR package settings."
+          fi

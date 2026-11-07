@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -15,6 +16,7 @@ type RequestRecord struct {
 	Timestamp   time.Time           `json:"timestamp"`
 	Method      string              `json:"method"`
 	Path        string              `json:"path"`
+	Port        int                 `json:"port,omitempty"`
 	ReqHeaders  map[string][]string `json:"reqHeaders"`
 	ReqBody     []byte              `json:"reqBody,omitempty"`
 	RespStatus  int                 `json:"respStatus"`
@@ -29,9 +31,9 @@ var (
 	inspectorMutex sync.RWMutex
 	capturedReqs   = make([]*RequestRecord, 0, maxRequests)
 	listeners      []chan struct{}
-	
-	globalDo       func(*http.Request) (*http.Response, error)
-	globalPort     int
+
+	globalDo   func(*http.Request) (*http.Response, error)
+	globalPort int
 )
 
 func SetReplayTarget(port int, do func(*http.Request) (*http.Response, error)) {
@@ -93,6 +95,9 @@ func Intercept(req *http.Request, do func(*http.Request) (*http.Response, error)
 		Path:       req.URL.Path,
 		ReqHeaders: req.Header.Clone(),
 	}
+	if port, err := strconv.Atoi(req.URL.Port()); err == nil {
+		record.Port = port
+	}
 	if req.URL.RawQuery != "" {
 		record.Path += "?" + req.URL.RawQuery
 	}
@@ -112,7 +117,7 @@ func Intercept(req *http.Request, do func(*http.Request) (*http.Response, error)
 	}
 	capturedReqs = append(capturedReqs, record)
 	inspectorMutex.Unlock()
-	
+
 	go notifyListeners()
 
 	start := time.Now()

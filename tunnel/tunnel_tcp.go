@@ -17,8 +17,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os/exec"
-	"runtime"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -40,10 +38,10 @@ func generateSelfSignedCert() (*tls.Config, error) {
 		Subject: pkix.Name{
 			Organization: []string{"Kexoz E2E"},
 		},
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(365 * 24 * time.Hour),
-		KeyUsage:  x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 	}
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
@@ -107,8 +105,10 @@ func (t *Tunnel) startOnceWS(ctx context.Context) error {
 	if serverURL.Scheme == "https" {
 		scheme = "wss"
 	}
-	
-	wsURL := fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s&proto=3", scheme, serverURL.Host, url.QueryEscape(t.ClientID))
+
+	// window=2m asks the server for 2 MB per-stream windows, which hashicorp
+	// yamux on both ends handles; large downloads are much faster with it.
+	wsURL := fmt.Sprintf("%s://%s/tunnel/connect?clientId=%s%s&proto=3&window=2m", scheme, serverURL.Host, url.QueryEscape(t.ClientID), t.tunnelQuery())
 
 	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
 	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
@@ -155,7 +155,7 @@ func (t *Tunnel) startOnceWS(ctx context.Context) error {
 
 // StartTCP connects to the server's raw TCP port and multiplexes using Yamux.
 func (t *Tunnel) StartTCP(ctx context.Context, tcpAddr string) error {
-	if !t.IsTCP && !t.IsUDP && !t.IsPTY {
+	if !t.IsTCP && !t.IsUDP {
 		SetReplayTarget(t.LocalPort, localHTTPClient.Do)
 		go StartInspector(4040)
 	}
@@ -191,9 +191,9 @@ func (t *Tunnel) startOnceTCP(ctx context.Context, tcpAddr string) error {
 	// 1. Dial the server (try TLS, fallback to TCP for local dev if TLS fails or not configured)
 	// For simplicity, we dial plain TCP if it's localhost, else TLS. Or just try TLS first.
 	// Since we might not have a valid cert locally, let's use plain TCP if insecure.
-	
+
 	serverURL, _ := url.Parse(t.ServerURL)
-	
+
 	var conn net.Conn
 	var err error
 	if serverURL.Scheme == "https" {
@@ -208,6 +208,9 @@ func (t *Tunnel) startOnceTCP(ctx context.Context, tcpAddr string) error {
 
 	// Handshake
 	authMsg := fmt.Sprintf("AUTH %s\n", t.ClientID)
+	if t.TunnelID != "" {
+		authMsg = fmt.Sprintf("AUTH %s %s\n", t.ClientID, t.TunnelID)
+	}
 	if _, err := conn.Write([]byte(authMsg)); err != nil {
 		return fmt.Errorf("auth write failed: %w", err)
 	}
@@ -275,27 +278,6 @@ func (t *Tunnel) handleStream(stream net.Conn) {
 		return
 	}
 
-	if t.IsPTY {
-		var cmd *exec.Cmd
-		if runtime.GOOS == "windows" {
-			cmd = exec.Command("powershell.exe")
-		} else {
-			cmd = exec.Command("bash")
-		}
-		
-		cmd.Stdin = stream
-		cmd.Stdout = stream
-		cmd.Stderr = stream
-
-		if err := cmd.Start(); err != nil {
-			stream.Write([]byte(fmt.Sprintf("Error starting shell: %v\r\n", err)))
-			return
-		}
-		
-		cmd.Wait()
-		return
-	}
-
 	if t.IsUDP {
 		localConn, err := net.Dial("udp", fmt.Sprintf("127.0.0.1:%d", t.LocalPort))
 		if err != nil {
@@ -350,7 +332,7 @@ func (t *Tunnel) handleStream(stream net.Conn) {
 		<-errc
 		return
 	}
-	
+
 	var connToRead net.Conn = stream
 	if t.IsE2E {
 		tlsConfig, err := generateSelfSignedCert()
@@ -363,7 +345,7 @@ func (t *Tunnel) handleStream(stream net.Conn) {
 		}
 		connToRead = tlsConn
 	}
-	
+
 	// Read HTTP request from the stream
 	req, err := http.ReadRequest(bufio.NewReader(connToRead))
 	if err != nil {
@@ -374,7 +356,7 @@ func (t *Tunnel) handleStream(stream net.Conn) {
 	req.URL.Scheme = "http"
 	req.URL.Host = fmt.Sprintf("127.0.0.1:%d", t.LocalPort)
 	req.RequestURI = ""
-	
+
 	// Execute local request via Interceptor
 	resp, err := Intercept(req, localHTTPClient.Do)
 	if err != nil {

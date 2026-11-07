@@ -73,7 +73,7 @@ Go 1.26 toolchain directly
   change should come with a regression test.
 - Comments explain **why**, not what. Match the surrounding style.
 - One logical change per commit; reference the affected component in the subject
-  (e.g. `server: enforce the auth wall on pty tunnels`).
+  (e.g. `server: enforce the auth wall on password-protected shares`).
 - Never commit build output, `node_modules`, or real `.env` files — the root
   `.gitignore` covers these, and CI does not need them.
 - Secrets belong in the environment, not in the tree. `*.env.example` documents
@@ -81,5 +81,5 @@ Go 1.26 toolchain directly
 
 ## Security
 
-Read [SECURITY.md](./SECURITY.md) before changing authentication, the PTY
-terminal, the transport handshake, or billing endpoints.
+Read [SECURITY.md](./SECURITY.md) before changing authentication, the
+transport handshake, or billing endpoints.

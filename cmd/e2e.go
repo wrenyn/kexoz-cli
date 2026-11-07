@@ -21,6 +21,15 @@ import (
 
 var e2eSubdomain string
 
+// createdTunnelID reads the share ID from a create-tunnel response.
+func createdTunnelID(body []byte) string {
+	var created struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal(body, &created)
+	return created.ID
+}
+
 var e2eCmd = &cobra.Command{
 	Use:   "e2e [port]",
 	Short: "Start an End-to-End Encrypted (Private) tunnel",
@@ -38,25 +47,25 @@ var e2eCmd = &cobra.Command{
 			return fmt.Errorf("authentication failed: %w", err)
 		}
 
-		if strings.TrimSpace(e2eSubdomain) != "" {
-			if err := claimSubdomain(serverURL, cfg.ClientID, strings.ToLower(strings.TrimSpace(e2eSubdomain))); err != nil {
-				return err
-			}
-			cfg.Subdomain = strings.ToLower(strings.TrimSpace(e2eSubdomain))
-			if err := config.SaveConfig(cfg); err != nil {
-				return fmt.Errorf("failed to save config: %w", err)
-			}
+		subdomain, err := resolveSubdomain(e2eSubdomain, cfg)
+		if err != nil {
+			return err
+		}
+		if err := claimSubdomain(serverURL, cfg.ClientID, subdomain); err != nil {
+			return err
+		}
+		cfg.Subdomain = subdomain
+		if err := config.SaveConfig(cfg); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
 		}
 
 		payload := map[string]interface{}{
 			"clientId":   cfg.ClientID,
 			"port":       port,
 			"tunnelType": "e2e",
+			"subdomain":  subdomain,
 		}
-		if cfg.Subdomain != "" {
-			payload["subdomain"] = cfg.Subdomain
-		}
-		
+
 		payloadBytes, _ := json.Marshal(payload)
 		req, _ := http.NewRequest(http.MethodPost, serverURL+"/client/tunnels", bytes.NewReader(payloadBytes))
 		req.Header.Set("Content-Type", "application/json")
@@ -65,19 +74,15 @@ var e2eCmd = &cobra.Command{
 			return fmt.Errorf("failed to create e2e tunnel on server: %w", err)
 		}
 		defer resp.Body.Close()
-		
+
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
 		if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("failed to create e2e tunnel, status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 		}
 
 		fmt.Printf("Client ID: %s\n", cfg.ClientID)
-		if cfg.Subdomain != "" {
-			fmt.Printf("Private E2E URL: https://%s.%s:8443\n", cfg.Subdomain, RootDomain)
-			fmt.Printf("(Ignore browser warnings about self-signed certs)\n")
-		} else {
-			return fmt.Errorf("E2E tunnels require a claimed subdomain (e.g. kexoz domain claim <name>)")
-		}
+		fmt.Printf("Private E2E URL: https://%s.%s:8443\n", subdomain, RootDomain)
+		fmt.Printf("(Ignore browser warnings about self-signed certs)\n")
 
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -85,6 +90,7 @@ var e2eCmd = &cobra.Command{
 		t := &tunnel.Tunnel{
 			ServerURL: serverURL,
 			ClientID:  cfg.ClientID,
+			TunnelID:  createdTunnelID(body),
 			LocalPort: port,
 			IsTCP:     false,
 			IsE2E:     true,

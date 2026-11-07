@@ -1,10 +1,10 @@
 # Kexoz CLI
 
-**Share your local apps, terminals and files securely — from the command line.**
+**Share your local apps securely — from the command line.**
 
 Headless, single-binary client for [Kexoz](https://kexoz.dev), built and maintained by
-[Wrenyn](https://wrenyn.com). Share web apps, raw TCP/UDP services and browser terminals
-through an encrypted, multiplexed tunnel. For folder sharing and a visual dashboard, use
+[Wrenyn](https://wrenyn.com). Share web apps and raw TCP/UDP services through an encrypted,
+multiplexed tunnel. For feedback, revisions and a visual dashboard, use
 [Kexoz Desktop](https://github.com/wrenyn/kexoz-desktop).
 
 ```console
@@ -19,10 +19,12 @@ Inspector    http://localhost:4040
 - **Private (E2E) tunnels** — TLS terminates on your machine, the gateway only relays bytes
 - **Raw TCP / UDP** for Postgres, SSH, game servers, DNS
 - **Path routing** (`--route /api=7000`), `--password` basic auth, `--one-time`, `--duration 1h`
-- **Browser terminal** (`pty`) for sharing a shell with a teammate — always behind Google sign-in
+- **Saved projects**: `kexoz start my-project` brings up every share in a project at once
 - **Request inspector** on `http://localhost:4040` to view and replay incoming requests
 
 ## Install
+
+npm, Homebrew and Chocolatey require registry setup and a successful public install check before use. See [publishing setup](docs/RELEASING.md). Direct installers require a release containing `SHA256SUMS`.
 
 | Method | Command |
 | --- | --- |
@@ -31,7 +33,7 @@ Inspector    http://localhost:4040
 | Homebrew | `brew install wrenyn/tap/kexoz` |
 | Chocolatey | `choco install kexoz` |
 | npm wrapper | `npm install -g @kexoz/cli` |
-| Container (GHCR) | `docker run --rm --network host -it ghcr.io/wrenyn/kexoz:latest http 3000` |
+| Container (GHCR) | `docker run --rm -it ghcr.io/wrenyn/kexoz:latest http 3000` (on Windows/macOS Docker, use `--add-host=host.docker.internal:host-gateway` and point the app at the host; `--network host` only works on Linux) |
 | Prebuilt binaries | [releases](https://github.com/wrenyn/kexoz-cli/releases) — windows / linux / macOS × amd64 / arm64 |
 
 Verify the install with `kexoz version` (or `kexoz --version`). The installer scripts
@@ -40,7 +42,7 @@ honour `KEXOZ_CLI_REPO` and `KEXOZ_INSTALL_DIR` to install from another release 
 ## Quick start
 
 ```bash
-kexoz login              # link a Google account (unlocks 1 GB free bandwidth)
+kexoz login              # link your Kexoz account (unlocks the full free plan)
 kexoz http 3000          # expose localhost:3000 over HTTPS
 ```
 
@@ -52,7 +54,12 @@ kexoz http 3000          # expose localhost:3000 over HTTPS
 | `kexoz e2e [port]` | End-to-end encrypted tunnel (TLS terminated locally). Flag: `--subdomain` |
 | `kexoz tcp [port]` | Raw TCP tunnel (SSH, Postgres, …) on a public port |
 | `kexoz udp [port]` | UDP tunnel (DNS, game servers). Flag: `--tcp` |
-| `kexoz terminal` | Browser terminal (`pty`). Flags: `--subdomain`, `--tcp`. Google sign-in is enforced by the gateway |
+| `kexoz start [project]` | Start a saved project's shares and print their links (uses `kexoz.json` when no project is named). Flag: `--env staging` |
+| `kexoz init [project]` | Write a `kexoz.json` linking this folder to a project. Flags: `--env`, `--force` |
+| `kexoz projects` | List saved projects and their environments |
+| `kexoz env new <name> [project]` | Copy an environment's shares (main by default, `--from`) into a new preview environment |
+| `kexoz inbox [project]` | Show the project's webhook inbox URL and latest requests. Flag: `--create` |
+| `kexoz inbox replay <request-id>` | Send a stored inbox request to your app again. Flag: `--share` |
 | `kexoz connect [tunnel-id]` | Dial a remote raw TCP tunnel locally. Flag: `--port` (default 8080) |
 | `kexoz tunnel list \| create \| delete \| routes` | Manage persistent tunnel configurations (`create`: `--subdomain`, `--port`, `--route`) |
 | `kexoz domain claim [subdomain] \| custom [domain]` | Claim a subdomain or map a custom domain (Pro) |
@@ -64,23 +71,48 @@ The default gateway is `https://api.kexoz.dev`. Point it at your own deployment 
 `kexoz --server https://api.example.com --root-domain example.com http 3000`, or set
 `KEXOZ_SERVER_URL` / `KEXOZ_ROOT_DOMAIN`.
 
+## Projects in a folder
+
+Run `kexoz init Shop` once in a repository and commit the `kexoz.json` it writes. Anyone on
+the project can then run `kexoz start` from that folder (or any folder below it) to start
+every share and print the links:
+
+```json
+{
+  "project": "Shop",
+  "environment": "staging",
+  "ports": { "web": 5173, "web /api": 8000 }
+}
+```
+
+- `environment` picks which copy of the project to start; leave it out for main.
+  `kexoz start --env pr-12` overrides it for one run.
+- `ports` is optional. It changes the local port for a share (by name or address), or for one
+  of its path routes with `"<share> /path"`, for people whose app runs elsewhere.
+- Path routes from the project (for example `/api` to a backend) are honoured, so one
+  address can serve both the frontend and the backend.
+
+Create a preview environment with `kexoz env new staging`. Each copy gets its own address and
+keeps the original's ports, routes and access rules.
+
+The project's webhook inbox (`kexoz inbox --create`) has a permanent URL. Kexoz stores every
+request sent to it even while your app is offline, forwards them live while the inbox's share
+is running, and `kexoz inbox replay <id>` resends one.
+
 ## Configuration
 
 The client identity and plan are stored in `~/.config/kexoz/config.yaml` (the legacy
-`~/.kexoz/config.json` is still read for migration). `kexoz logout` clears the Google
-session without deleting the client identity.
+`~/.kexoz/config.json` is still read for migration). `kexoz logout` unlinks the account
+without deleting the client identity.
 
 ## Transports
 
-By default the agent connects over a WSS WebSocket and multiplexes every stream (HTTP, TCP, UDP,
-PTY) with [yamux](https://github.com/hashicorp/yamux). On networks that block WebSockets, pass
+By default the agent connects over a WSS WebSocket and multiplexes every stream (HTTP, TCP, UDP)
+with [yamux](https://github.com/hashicorp/yamux). On networks that block WebSockets, pass
 `--tcp <server:8081>` to use the raw TCP agent transport instead.
 
 ## Security
 
-- `kexoz terminal` hands visitors a shell on your machine, so the gateway refuses to serve a
-  terminal unless Google OAuth is configured and the visitor has signed in — the tunnel's
-  `requireAuth` flag can neither be disabled nor bypassed.
 - The client identity and the linked account live in `~/.config/kexoz/config.yaml`, which is
   written with owner-only (`0600`) permissions. For automation, issue an API token
   (`kexoz_sk_…`); using the raw client identity as a bearer credential is deprecated.
@@ -103,9 +135,12 @@ go vet ./... && go test ./...
 | `config/` | On-disk identity/config handling |
 | `packages/` | Distribution wrappers: npm (`@kexoz/cli`), Chocolatey, Homebrew |
 
-Releases are published by [`.github/workflows/release.yaml`](./.github/workflows/release.yaml):
-a `v*` tag builds the six binaries, pushes `ghcr.io/<owner>/kexoz`, and publishes the npm
-wrapper. See [CONTRIBUTING.md](./CONTRIBUTING.md) and [ARCHITECTURE.md](./ARCHITECTURE.md).
+Every push to `main` rebuilds and pushes `ghcr.io/wrenyn/kexoz:latest` (and `:<short-sha>`)
+via [`.github/workflows/docker.yaml`](./.github/workflows/docker.yaml). Version tags (`v*`)
+are published by [`.github/workflows/release.yaml`](./.github/workflows/release.yaml): six
+binaries, the same GHCR image tagged `:vX.Y.Z` + `:latest`, and the npm wrapper. The GHCR
+package must stay **Public** so anonymous `docker pull` works. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) and [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## License
 
