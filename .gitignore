@@ -2,6 +2,7 @@
 /bin/
 /dist/
 /packages/npm/node_modules/
+/packages/mcp/node_modules/
 
 # Go build/test artifacts
 *.exe

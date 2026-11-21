@@ -1,0 +1,26 @@
+{
+  "name": "@kexoz/mcp",
+  "version": "0.1.0",
+  "description": "Kexoz MCP server — expose project feedback and review rounds to AI coding agents",
+  "type": "module",
+  "bin": {
+    "kexoz-mcp": "./bin/kexoz-mcp.js"
+  },
+  "main": "./src/index.js",
+  "scripts": {
+    "start": "node ./bin/kexoz-mcp.js",
+    "mcp": "node ./bin/kexoz-mcp.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "license": "MIT"
+}
